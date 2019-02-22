@@ -211,7 +211,7 @@
         <repository>
             <id>dev-azure-com-assentis-maven_plugins</id>
             <name>maven_plugins</name>
-            <url>https://pkgs.dev.azure.com/assentis/_packaging/maven_plugins/maven/v1</url>
+            <url>https://pkgs.dev.azure.com/assentis/_packaging/3rdParty/maven/v1</url>
             <uniqueVersion>true</uniqueVersion>
             <layout>default</layout>
         </repository>
