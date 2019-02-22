@@ -43,7 +43,7 @@ steps:
     testResultsFiles: '**/TEST-*.xml'
     goals: 'deploy'
     mavenFeedAuthenticate: true
-    options: '-B -Drevision=$(patchBaseVersion)-SNAPSHOT'
+    options: '-B -Drevision=$(patchBaseVersion)'
     codeCoverageToolOption: 'None'
     sonarQubeRunAnalysis: false
   condition: eq(variables['Build.SourceBranch'], 'refs/heads/batik-1_11-assentis')
