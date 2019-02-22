@@ -7,7 +7,7 @@ pool:
   vmImage: 'Ubuntu 16.04'
 
 variables:
-  patchBaseVersion: 1.11-assentis-0 # Carefully review before PR
+  patchBaseVersion: 1.11-assentis-0beta # Carefully review before PR
 
 steps:
 
@@ -43,7 +43,7 @@ steps:
     testResultsFiles: '**/TEST-*.xml'
     goals: 'deploy'
     mavenFeedAuthenticate: true
-    options: '-B -Drevision=$(patchBaseVersion)'
+    options: '-B -Drevision=$(patchBaseVersion)-SNAPSHOT'
     codeCoverageToolOption: 'None'
     sonarQubeRunAnalysis: false
   condition: eq(variables['Build.SourceBranch'], 'refs/heads/batik-1_11-assentis')
