@@ -18,13 +18,17 @@
  */
 package org.apache.batik.bridge;
 
+
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Paint;
 import java.awt.Shape;
 import java.awt.Stroke;
+import java.awt.color.ColorSpace;
 import java.awt.color.ICC_Profile;
 import java.io.IOException;
+
+import com.sun.media.jai.util.SimpleCMYKColorSpace;
 
 import org.apache.batik.css.engine.SVGCSSEngine;
 import org.apache.batik.css.engine.value.Value;
@@ -42,7 +46,6 @@ import org.apache.batik.gvt.ShapePainter;
 import org.apache.batik.gvt.StrokeShapePainter;
 import org.apache.batik.util.CSSConstants;
 import org.apache.batik.util.SVGConstants;
-
 import org.apache.xmlgraphics.java2d.color.CIELabColorSpace;
 import org.apache.xmlgraphics.java2d.color.ColorSpaces;
 import org.apache.xmlgraphics.java2d.color.ColorWithAlternatives;
@@ -51,7 +54,6 @@ import org.apache.xmlgraphics.java2d.color.ICCColorSpaceWithIntent;
 import org.apache.xmlgraphics.java2d.color.NamedColorSpace;
 import org.apache.xmlgraphics.java2d.color.profile.NamedColorProfile;
 import org.apache.xmlgraphics.java2d.color.profile.NamedColorProfileParser;
-
 import org.w3c.dom.Element;
 import org.w3c.dom.css.CSSPrimitiveValue;
 import org.w3c.dom.css.CSSValue;
@@ -257,65 +259,65 @@ public abstract class PaintServer
      * @param ctx the bridge context
      */
     public static Paint convertPaint(Element paintedElement,
-                                        GraphicsNode paintedNode,
-                                        Value paintDef,
-                                        float opacity,
-                                        BridgeContext ctx) {
+                                     GraphicsNode paintedNode,
+                                     Value paintDef,
+                                     float opacity,
+                                     BridgeContext ctx) {
         if (paintDef.getCssValueType() == CSSValue.CSS_PRIMITIVE_VALUE) {
             switch (paintDef.getPrimitiveType()) {
-            case CSSPrimitiveValue.CSS_IDENT:
-                return null; // none
-
-            case CSSPrimitiveValue.CSS_RGBCOLOR:
-                return convertColor(paintDef, opacity);
-
-            case CSSPrimitiveValue.CSS_URI:
-                return convertURIPaint(paintedElement,
-                                       paintedNode,
-                                       paintDef,
-                                       opacity,
-                                       ctx);
-
-            default:
-                throw new IllegalArgumentException
-                    ("Paint argument is not an appropriate CSS value");
-            }
-        } else { // List
-            Value v = paintDef.item(0);
-            switch (v.getPrimitiveType()) {
-            case CSSPrimitiveValue.CSS_RGBCOLOR:
-                return convertRGBICCColor(paintedElement, v,
-                                          paintDef.item(1),
-                                          opacity, ctx);
-
-            case CSSPrimitiveValue.CSS_URI: {
-                Paint result = silentConvertURIPaint(paintedElement,
-                                                     paintedNode,
-                                                     v, opacity, ctx);
-                if (result != null) return result;
-
-                v = paintDef.item(1);
-                switch (v.getPrimitiveType()) {
                 case CSSPrimitiveValue.CSS_IDENT:
                     return null; // none
 
                 case CSSPrimitiveValue.CSS_RGBCOLOR:
-                    if (paintDef.getLength() == 2) {
-                        return convertColor(v, opacity);
-                    } else {
-                        return convertRGBICCColor(paintedElement, v,
-                                                  paintDef.item(2),
-                                                  opacity, ctx);
-                    }
+                    return convertColor(paintDef, opacity);
+
+                case CSSPrimitiveValue.CSS_URI:
+                    return convertURIPaint(paintedElement,
+                                           paintedNode,
+                                           paintDef,
+                                           opacity,
+                                           ctx);
+
                 default:
                     throw new IllegalArgumentException
                         ("Paint argument is not an appropriate CSS value");
-                }
             }
-            default:
-                // can't be reached
-                throw new IllegalArgumentException
-                    ("Paint argument is not an appropriate CSS value");
+        } else { // List
+            Value v = paintDef.item(0);
+            switch (v.getPrimitiveType()) {
+                case CSSPrimitiveValue.CSS_RGBCOLOR:
+                    return convertRGBICCColor(paintedElement, v,
+                                              paintDef.item(1),
+                                              opacity, ctx);
+
+                case CSSPrimitiveValue.CSS_URI: {
+                    Paint result = silentConvertURIPaint(paintedElement,
+                                                         paintedNode,
+                                                         v, opacity, ctx);
+                    if (result != null) return result;
+
+                    v = paintDef.item(1);
+                    switch (v.getPrimitiveType()) {
+                        case CSSPrimitiveValue.CSS_IDENT:
+                            return null; // none
+
+                        case CSSPrimitiveValue.CSS_RGBCOLOR:
+                            if (paintDef.getLength() == 2) {
+                                return convertColor(v, opacity);
+                            } else {
+                                return convertRGBICCColor(paintedElement, v,
+                                                          paintDef.item(2),
+                                                          opacity, ctx);
+                            }
+                        default:
+                            throw new IllegalArgumentException
+                                ("Paint argument is not an appropriate CSS value");
+                    }
+                }
+                default:
+                    // can't be reached
+                    throw new IllegalArgumentException
+                        ("Paint argument is not an appropriate CSS value");
             }
         }
     }
@@ -430,6 +432,23 @@ public abstract class PaintServer
         if (iccProfileName == null){
             return null;
         }
+
+        // START PATCH to support CMYK CR-756. If we would proceed here
+        // normal, batik would look up a ICC Color profile which does
+        // not exist and convert the CMYK values to RGB. To properly
+        // pass through the CMYK values to the formats when reading
+        // SVGs we have to use the Assentis ColorSpace
+        if("#CMYK".equalsIgnoreCase(iccProfileName) && c.getNumberOfColors() >= 4 ){
+
+            ColorSpace cmyk_cs = SimpleCMYKColorSpace.getInstance();
+            float alpha = 1.0f;
+            if(c.getNumberOfColors() > 4){
+                alpha = c.getColor(4);
+            }
+            return new java.awt.Color(cmyk_cs, new float[] {c.getColor(0), c.getColor(1), c.getColor(2), c.getColor(3)}, alpha);
+        }
+        //END PATCH
+
         // Ask the bridge to map the ICC profile name to an  ICC_Profile object
         SVGColorProfileElementBridge profileBridge
             = (SVGColorProfileElementBridge)
@@ -471,9 +490,9 @@ public abstract class PaintServer
      * @param ctx the bridge context to use
      */
     public static Color convertICCNamedColor(Element e,
-                                        ICCNamedColor c,
-                                        float opacity,
-                                        BridgeContext ctx) {
+                                             ICCNamedColor c,
+                                             float opacity,
+                                             BridgeContext ctx) {
         // Get ICC Profile's name
         String iccProfileName = c.getColorProfile();
         if (iccProfileName == null){
@@ -532,9 +551,9 @@ public abstract class PaintServer
      * @param ctx the bridge context to use
      */
     public static Color convertCIELabColor(Element e,
-                                        CIELabColor c,
-                                        float opacity,
-                                        BridgeContext ctx) {
+                                           CIELabColor c,
+                                           float opacity,
+                                           BridgeContext ctx) {
         CIELabColorSpace cs = new CIELabColorSpace(c.getWhitePoint());
         float[] lab = c.getColorValues();
         Color specColor = cs.toColor(lab[0], lab[1], lab[2], opacity);
@@ -552,10 +571,10 @@ public abstract class PaintServer
      * @param ctx the bridge context to use
      */
     public static Color convertDeviceColor(Element e,
-                                        Value srgb,
-                                        DeviceColor c,
-                                        float opacity,
-                                        BridgeContext ctx) {
+                                           Value srgb,
+                                           DeviceColor c,
+                                           float opacity,
+                                           BridgeContext ctx) {
         int r = resolveColorComponent(srgb.getRed());
         int g = resolveColorComponent(srgb.getGreen());
         int b = resolveColorComponent(srgb.getBlue());
@@ -570,7 +589,7 @@ public abstract class PaintServer
                 }
                 Color cmyk = new ColorWithAlternatives(cmykCs, comps, opacity, null);
                 Color specColor = new ColorWithAlternatives(r, g, b, Math.round(opacity * 255f),
-                        new Color[] {cmyk});
+                                                            new Color[] {cmyk});
                 return specColor;
             } else {
                 return convertColor(srgb, opacity); //NYI
@@ -630,8 +649,8 @@ public abstract class PaintServer
             // negative values
             if ( dashoffset < 0 ) {
                 float dashpatternlength = 0;
-                for (float aDasharray : dasharray) {
-                    dashpatternlength += aDasharray;
+                for ( int i=0; i<dasharray.length; i++ ) {
+                    dashpatternlength += dasharray[i];
                 }
                 // if the dash pattern consists of an odd number of elements,
                 // the pattern length must be doubled
@@ -700,15 +719,15 @@ public abstract class PaintServer
     public static int convertStrokeLinecap(Value v) {
         String s = v.getStringValue();
         switch (s.charAt(0)) {
-        case 'b':
-            return BasicStroke.CAP_BUTT;
-        case 'r':
-            return BasicStroke.CAP_ROUND;
-        case 's':
-            return BasicStroke.CAP_SQUARE;
-        default:
-            throw new IllegalArgumentException
-                ("Linecap argument is not an appropriate CSS value");
+            case 'b':
+                return BasicStroke.CAP_BUTT;
+            case 'r':
+                return BasicStroke.CAP_ROUND;
+            case 's':
+                return BasicStroke.CAP_SQUARE;
+            default:
+                throw new IllegalArgumentException
+                    ("Linecap argument is not an appropriate CSS value");
         }
     }
 
@@ -720,15 +739,15 @@ public abstract class PaintServer
     public static int convertStrokeLinejoin(Value v) {
         String s = v.getStringValue();
         switch (s.charAt(0)) {
-        case 'm':
-            return BasicStroke.JOIN_MITER;
-        case 'r':
-            return BasicStroke.JOIN_ROUND;
-        case 'b':
-            return BasicStroke.JOIN_BEVEL;
-        default:
-            throw new IllegalArgumentException
-                ("Linejoin argument is not an appropriate CSS value");
+            case 'm':
+                return BasicStroke.JOIN_MITER;
+            case 'r':
+                return BasicStroke.JOIN_ROUND;
+            case 'b':
+                return BasicStroke.JOIN_BEVEL;
+            default:
+                throw new IllegalArgumentException
+                    ("Linejoin argument is not an appropriate CSS value");
         }
     }
 
@@ -737,23 +756,23 @@ public abstract class PaintServer
     /////////////////////////////////////////////////////////////////////////
 
     /**
-     * Returns the value of one color component (0 &lt;= result &lt;= 255).
+     * Returns the value of one color component (0 <= result <= 255).
      * @param v the value that defines the color component
      */
     public static int resolveColorComponent(Value v) {
         float f;
         switch(v.getPrimitiveType()) {
-        case CSSPrimitiveValue.CSS_PERCENTAGE:
-            f = v.getFloatValue();
-            f = (f > 100f) ? 100f : (f < 0f) ? 0f : f;
-            return Math.round(255f * f / 100f);
-        case CSSPrimitiveValue.CSS_NUMBER:
-            f = v.getFloatValue();
-            f = (f > 255f) ? 255f : (f < 0f) ? 0f : f;
-            return Math.round(f);
-        default:
-            throw new IllegalArgumentException
-                ("Color component argument is not an appropriate CSS value");
+            case CSSPrimitiveValue.CSS_PERCENTAGE:
+                f = v.getFloatValue();
+                f = (f > 100f) ? 100f : (f < 0f) ? 0f : f;
+                return Math.round(255f * f / 100f);
+            case CSSPrimitiveValue.CSS_NUMBER:
+                f = v.getFloatValue();
+                f = (f > 255f) ? 255f : (f < 0f) ? 0f : f;
+                return Math.round(f);
+            default:
+                throw new IllegalArgumentException
+                    ("Color component argument is not an appropriate CSS value");
         }
     }
 
