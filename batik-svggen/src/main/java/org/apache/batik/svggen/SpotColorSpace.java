@@ -9,7 +9,7 @@ import java.awt.color.ColorSpace;
 
 public class SpotColorSpace extends ColorSpace {
 
-    protected SpotColorSpace() {
+    public SpotColorSpace() {
         super(9, 4);
     }
 
