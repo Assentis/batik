@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.batik.ext.awt.g2d.GraphicContext;
-import com.sun.media.jai.util.SimpleCMYKColorSpace;
 
 /**
  * Utility class that converts a Color object into a set of

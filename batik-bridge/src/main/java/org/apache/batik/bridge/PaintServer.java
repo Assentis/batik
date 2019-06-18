@@ -28,7 +28,7 @@ import java.awt.color.ColorSpace;
 import java.awt.color.ICC_Profile;
 import java.io.IOException;
 
-import com.sun.media.jai.util.SimpleCMYKColorSpace;
+import org.apache.batik.svggen.SimpleCMYKColorSpace;
 
 import org.apache.batik.css.engine.SVGCSSEngine;
 import org.apache.batik.css.engine.value.Value;
