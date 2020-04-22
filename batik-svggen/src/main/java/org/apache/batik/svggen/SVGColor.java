@@ -117,7 +117,7 @@ public class SVGColor extends AbstractSVGConverter {
         cssColorBuffer.append(color.getBlue());
         cssColorBuffer.append(RGB_SUFFIX);
         ColorSpace cs = color.getColorSpace();
-        if (cs instanceof SimpleCMYKColorSpace) {
+        if (cs instanceof SimpleCMYKColorSpace || cs.getType() == ColorSpace.TYPE_CMYK) {
             cssColorBuffer.append(" icc-color(#CMYK, ");
             float[] fff = new float[4];
             fff = color.getColorComponents(fff);
