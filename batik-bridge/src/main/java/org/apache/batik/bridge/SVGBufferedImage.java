@@ -8,9 +8,11 @@ import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
 import java.util.Hashtable;
 
+import javax.xml.XMLConstants;
 import javax.xml.transform.Result;
 import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
@@ -73,11 +75,29 @@ public class SVGBufferedImage extends BufferedImage {
         Source source = new DOMSource(svgNode);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Result result = new StreamResult(out);
-        TransformerFactory factory = TransformerFactory.newInstance();
+        TransformerFactory factory = getDefaultTransformerFactory();
         Transformer transformer = factory.newTransformer();
         transformer.setOutputProperty("omit-xml-declaration", "yes");
         transformer.transform(source, result);
         return out.toByteArray();
+    }
+
+    public static TransformerFactory getDefaultTransformerFactory() {
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        // For saxon or xalan transformer factory it is impossible to set external DTD, doctype declaration
+        // and stylesheet properties
+        if ("net.sf.saxon.TransformerFactoryImpl".equals(transformerFactory.getClass().getCanonicalName())
+            || transformerFactory instanceof org.apache.xalan.processor.TransformerFactoryImpl) {
+            return transformerFactory;
+        }
+        try {
+            transformerFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        } catch (TransformerConfigurationException e) {
+            System.err.println("could not apply security feature to the transformer factory" + e.getMessage());
+        }
+        transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        return transformerFactory;
     }
 
     public int getWidth() {
