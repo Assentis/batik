@@ -31,7 +31,7 @@
   <parent>
     <groupId>org.apache.xmlgraphics</groupId>
     <artifactId>batik</artifactId>
-    <version>1.14</version>
+    <version>${revision}</version>
   </parent>
 
   <dependencies>
@@ -64,6 +64,7 @@
       <groupId>xalan</groupId>
       <artifactId>xalan</artifactId>
       <version>${xalan.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>xml-apis</groupId>
